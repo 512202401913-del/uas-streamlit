@@ -115,6 +115,23 @@ with tab2:
 
 # ================= KONTEN TAB 3 =================
 with tab3:
+    st.subheader("Eksplorasi Data Awal (EDA)")
+    
+    # Membagi layar jadi 2 grafik bersebelahan
+    col_eda1, col_eda2 = st.columns(2)
+    
+    with col_eda1:
+        st.write("**Distribusi Tipe Cacat**")
+        fig_bar = px.histogram(df, x="TYPE", color="SEVERITY", barmode="group")
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+    with col_eda2:
+        st.write("**Metode Inspeksi yang Digunakan**")
+        fig_pie = px.pie(df, names="INSPECTION", hole=0.4)
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+    st.markdown("---")
     st.subheader("Sampel Dataset Asli (defects_data.csv)")
-    # Menampilkan dataset asli tanpa kolom tambahan hasil proses algoritma
-    st.dataframe(df.drop(columns=['Severity_Code', 'Cluster_Num', 'Cluster']), use_container_width=True)
+    
+    # Menampilkan dataset asli tanpa kolom tambahan hasil algoritma
+    st.dataframe(df.drop(columns=['Severity_Code', 'Cluster_Num', 'Cluster'], errors='ignore'), use_container_width=True)
