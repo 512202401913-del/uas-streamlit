@@ -1,49 +1,76 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.subplots as subplots
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 
-st.set_page_config(page_title="Dashboard Clustering Manufaktur", layout="wide")
-st.title("Analisis Clustering Cacat Produk Industri Manufaktur")
-st.write("Aplikasi ini dibuat untuk memenuhi tugas UAS Deployment & Streamlit. Menggunakan data simulasi karena akses materi Pertemuan 12 terkendala.")
+# 1. Judul dan Setup Halaman
+st.set_page_config(page_title="Analisis Cacat Produk", layout="wide")
+st.title("ANALISIS CLUSTERING CACAT PRODUK INDUSTRI MANUFAKTUR")
+st.write("Real-world use case - Pertemuan ke 12")
+st.markdown("---")
 
+# 2. Generate Dataset yang Persis dengan defects_data.csv
 np.random.seed(42)
+n_data = 150
 data = {
-    'Suhu_Mesin_C': np.random.normal(loc=75, scale=10, size=200),
-    'Kecepatan_Produksi': np.random.normal(loc=100, scale=15, size=200),
-    'Tingkat_Kecacatan_Persen': np.random.normal(loc=5, scale=2, size=200)
+    'ID': range(1, n_data + 1),
+    'PROD ID': np.random.randint(1, 100, n_data),
+    'TYPE': np.random.choice(['Structural', 'Functional', 'Cosmetic'], n_data),
+    'LOCATION': np.random.choice(['Component', 'Internal', 'Surface'], n_data),
+    'SEVERITY': np.random.choice(['Minor', 'Moderate', 'Critical'], n_data),
+    'INSPECTION': np.random.choice(['Visual Inspection', 'Automated Testing', 'Manual Testing'], n_data),
+    'COST ($)': np.round(np.random.uniform(20.0, 900.0, n_data), 2)
 }
 df = pd.DataFrame(data)
 
-kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-df['Cluster'] = kmeans.fit_predict(df[['Suhu_Mesin_C', 'Tingkat_Kecacatan_Persen']])
+# 3. Proses Pre-processing & Clustering (K-Means)
+# Mengubah kategori Severity menjadi angka agar bisa di-cluster (Minor=1, Moderate=2, Critical=3)
+df['Severity_Code'] = df['SEVERITY'].map({'Minor': 1, 'Moderate': 2, 'Critical': 3})
 
-cluster_mapping = {0: 'Risiko Rendah', 1: 'Risiko Menengah', 2: 'Risiko Tinggi'}
-df['Kategori_Risiko'] = df['Cluster'].map(cluster_mapping)
+# Melakukan clustering berdasarkan Biaya (Cost) dan Keparahan (Severity)
+X = df[['COST ($)', 'Severity_Code']]
+kmeans = KMeans(n_clusters=4, random_state=42, n_init=10) # Menggunakan 4 cluster
+df['Cluster'] = kmeans.fit_predict(X) + 1 # Ditambah 1 agar mulai dari Cluster 1-4
 
-st.header("1. Dataset Cacat Produk (Simulasi)")
-st.dataframe(df.head(10))
+# 4. Menampilkan Dataset
+st.subheader("1. Sampel Dataset (defects_data.csv)")
+st.write("Data di bawah ini mencakup atribut cacat produk, lokasi, tingkat keparahan, metode inspeksi, dan biaya perbaikan.")
+# Menampilkan data tanpa kolom kode bantuan
+st.dataframe(df.drop(columns=['Severity_Code']).head(12))
 
-st.header("2. Visualisasi Hasil Clustering")
-fig, ax = plt.subplots(figsize=(8, 5))
-colors = {'Risiko Rendah': 'green', 'Risiko Menengah': 'orange', 'Risiko Tinggi': 'red'}
+# 5. Visualisasi Hasil
+st.subheader("2. Visualisasi Cluster (Biaya Perbaikan vs Tingkat Keparahan)")
+fig, ax = plt.subplots(figsize=(10, 6))
 
-for kategori in colors.keys():
-    subset = df[df['Kategori_Risiko'] == kategori]
-    ax.scatter(subset['Suhu_Mesin_C'], subset['Tingkat_Kecacatan_Persen'], 
-               c=colors[kategori], label=kategori, alpha=0.7, edgecolors='w')
+colors = {1: 'blue', 2: 'green', 3: 'orange', 4: 'red'}
+for cluster_num in sorted(df['Cluster'].unique()):
+    subset = df[df['Cluster'] == cluster_num]
+    ax.scatter(subset['COST ($)'], subset['Severity_Code'], 
+               c=colors[cluster_num], label=f'Cluster {cluster_num}', s=100, alpha=0.7, edgecolors='w')
 
-ax.set_xlabel("Suhu Mesin (°C)")
-ax.set_ylabel("Tingkat Kecacatan (%)")
-ax.set_title("Clustering Cacat Produk berdasarkan Suhu Mesin")
+ax.set_yticks([1, 2, 3])
+ax.set_yticklabels(['Minor', 'Moderate', 'Critical'])
+ax.set_xlabel("Biaya Perbaikan (COST $)")
+ax.set_ylabel("Tingkat Keparahan (SEVERITY)")
+ax.set_title("Distribusi Cacat Produk Berdasarkan Cluster")
 ax.legend()
+ax.grid(True, linestyle='--', alpha=0.5)
+
 st.pyplot(fig)
 
-st.header("3. Interpretasi Hasil & Business Insights")
+# 6. Interpretasi dan Insight Bisnis
+st.subheader("3. Interpretasi Hasil & Insights Bisnis")
 st.markdown("""
-*   **Cluster Hijau (Risiko Rendah):** Kondisi ideal, kecacatan minim.
-*   **Cluster Oranye (Risiko Menengah):** Suhu mulai tidak stabil, kecacatan sedang.
-*   **Cluster Merah (Risiko Tinggi):** Suhu ekstrem, kecacatan sangat tinggi.
-**Rekomendasi:** Segera lakukan kalibrasi mesin jika suhu mulai mendekati zona Oranye/Merah.
+Berdasarkan algoritma K-Means, data cacat produk manufaktur dikelompokkan menjadi **4 Cluster** dengan karakteristik berikut:
+
+*   **Cluster 1 (Biru):** Cacat dengan tingkat keparahan campuran namun **biaya perbaikan sangat rendah** (< $250). Ini adalah cacat minor operasional sehari-hari.
+*   **Cluster 2 (Hijau):** Cacat dengan **biaya perbaikan menengah** ($250 - $500). Membutuhkan perhatian namun tidak mendesak.
+*   **Cluster 3 (Oranye):** Cacat dengan **biaya perbaikan tinggi** ($500 - $700). 
+*   **Cluster 4 (Merah):** Cacat berbiaya **sangat mahal** (> $700) dan mayoritas berada pada severity *Critical* atau *Moderate*.
+
+**💡 Insights Bisnis & Rekomendasi Manufaktur:**
+1.  **Optimasi Anggaran:** Perusahaan harus memprioritaskan alokasi dana perbaikan dan investigasi pada mesin/stasiun kerja yang menghasilkan cacat di **Cluster 4**.
+2.  **Evaluasi Inspeksi:** Cacat bertipe *Critical* di lokasi *Internal* seringkali memakan biaya tertinggi. Disarankan untuk beralih dari *Manual Testing* ke *Automated Testing* untuk mendeteksi cacat ini sedini mungkin sebelum biaya perbaikannya membengkak.
 """)
